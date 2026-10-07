@@ -2,7 +2,7 @@
 
 A browser-based tool that turns a raw list of retail leads into a scored, segmented outreach tracker.
 
-**Live demo:** https://YOUR-USERNAME.github.io/lead-dashboard/
+**Live demo:** https://aaronchunie-lang.github.io/lead-dashboard/
 
 ## Why I built it
 
