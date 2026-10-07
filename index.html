@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Segmentation Dashboard</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1d2433;--muted:#6b7385;--line:#e4e7ec;--accent:#2563eb;
+        --high:#16a34a;--warm:#f59e0b;--cold:#94a3b8;--warn:#dc2626}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  header h1{font-size:18px;margin:0}
+  header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
+  button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input[type=file]{display:none}
+  main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;padding:20px 24px;max-width:1400px;margin:0 auto}
+  @media(max-width:900px){main{grid-template-columns:minmax(0,1fr);padding:16px}aside{order:2}}
+  section,aside{min-width:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{font-size:14px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  aside .card+.card{margin-top:16px}
+  .rule{margin-bottom:14px}
+  .rule label{display:flex;justify-content:space-between;font-weight:600;margin-bottom:4px}
+  .rule input[type=range]{width:100%}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;cursor:pointer;user-select:none}
+  .chip input{margin:0}
+  .sub{font-size:12px;color:var(--muted);margin:2px 0 8px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+  .kpi .v{font-size:26px;font-weight:700}
+  .kpi .l{color:var(--muted);font-size:12px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:16px}
+  .bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+  .bar .name{width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .track{flex:1;background:#eef1f5;border-radius:6px;height:16px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:6px;background:var(--accent)}
+  .bar .n{width:34px;text-align:right;color:var(--muted)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+  .toolbar input[type=search],select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .tablewrap{overflow:auto;max-height:520px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:#fafbfc;cursor:pointer;font-weight:600}
+  th.sorted::after{content:attr(data-dir);margin-left:4px;color:var(--muted)}
+  .seg{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;color:#fff}
+  .seg.High-fit{background:var(--high)} .seg.Warm{background:var(--warm)} .seg.Cold{background:var(--cold)}
+  .flag{color:var(--warn);font-weight:600;font-size:12px}
+  .score{font-weight:700}
+  td select{padding:3px 6px;font-size:12px}
+  .muted{color:var(--muted)}
+  .err{color:var(--warn)}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:16px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Lead Segmentation Dashboard</h1>
+    <p>Upload a lead list, score it with your own rules, and track outreach in one place.</p>
+  </div>
+  <div class="actions">
+    <label class="btn primary" for="file">Upload CSV</label>
+    <input type="file" id="file" accept=".csv,text/csv">
+    <button id="loadSample">Load sample data</button>
+    <button id="export">Export CSV</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="card">
+      <h2>Scoring rules</h2>
+      <p class="sub">Each slider sets how many points a factor is worth. Scores are scaled to 0–100.</p>
+      <div class="rule"><label>Category fit <span id="wCatV"></span></label><input type="range" id="wCat" min="0" max="50" value="30"></div>
+      <div class="rule"><label>Store count (size) <span id="wSizeV"></span></label><input type="range" id="wSize" min="0" max="50" value="25"></div>
+      <div class="rule"><label>Region fit <span id="wRegV"></span></label><input type="range" id="wReg" min="0" max="50" value="15"></div>
+      <div class="rule"><label>Engagement <span id="wEngV"></span></label><input type="range" id="wEng" min="0" max="50" value="30"></div>
+    </div>
+    <div class="card">
+      <h2>Targets</h2>
+      <p class="sub">Target categories</p>
+      <div class="chips" id="catChips"></div>
+      <p class="sub" style="margin-top:12px">Target regions</p>
+      <div class="chips" id="regChips"></div>
+    </div>
+    <div class="card">
+      <h2>Segments</h2>
+      <div class="rule"><label>High-fit at or above <span id="tHighV"></span></label><input type="range" id="tHigh" min="40" max="95" value="65"></div>
+      <div class="rule"><label>Warm at or above <span id="tWarmV"></span></label><input type="range" id="tWarm" min="10" max="80" value="40"></div>
+      <div class="rule"><label>Follow up after (days) <span id="tStaleV"></span></label><input type="range" id="tStale" min="3" max="30" value="14"></div>
+    </div>
+  </aside>
+
+  <section>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card"><h2>Leads by segment</h2><div id="chartSeg"></div></div>
+      <div class="card"><h2>Outreach funnel</h2><div id="chartFunnel"></div></div>
+      <div class="card"><h2>Reply rate by channel</h2><div id="chartChan"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Leads</h2>
+      <div class="toolbar">
+        <input type="search" id="q" placeholder="Search name or email">
+        <select id="fSeg"><option value="">All segments</option><option>High-fit</option><option>Warm</option><option>Cold</option></select>
+        <select id="fStatus"><option value="">All statuses</option></select>
+        <label class="chip"><input type="checkbox" id="fFollow"> Needs follow-up only</label>
+        <span class="muted" id="count"></span>
+      </div>
+      <div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+    </div>
+
+  </section>
+</main>
+<footer>Runs entirely in your browser. No data leaves this page.</footer>
+
+<script>
+const SAMPLE_CSV = `name,category,region,store_count,channel,status,last_contact,email
+Oak & Ash Supply Co.,Gifts,Midwest,20,Email,Contacted,2026-08-31,buyer@oakashsupplyco.example.com
+Kinfolk Market,Gifts,Southwest,5,Trade show,Replied,2026-09-04,buyer@kinfolkmarket.example.com
+Canvas House,Home Goods,South,2,Instagram DM,Contacted,2026-09-06,buyer@canvashouse.example.com
+Fable Market,Outdoor,South,12,Referral,Replied,2026-09-30,buyer@fablemarket.example.com
+Juniper Boutique,Home Goods,Southwest,1,Email,Not contacted,,buyer@juniperboutique.example.com
+Atlas Mercantile,Electronics Accessories,South,1,Referral,Lost,2026-09-25,buyer@atlasmercantile.example.com
+Prairie Goods,Gifts,Midwest,12,Cold call,Not contacted,,buyer@prairiegoods.example.com
+Juniper Trading,Home Goods,Southwest,8,Cold call,Contacted,2026-08-22,buyer@junipertrading.example.com
+Canvas Supply Co.,Home Goods,West,1,Email,Contacted,2026-09-30,buyer@canvassupplyco.example.com
+Pine Collective,Outdoor,West,3,LinkedIn,Contacted,2026-08-25,buyer@pinecollective.example.com
+Velvet Trading,Beauty,South,1,Cold call,Meeting,2026-10-04,buyer@velvettrading.example.com
+Maple Boutique,Apparel,South,1,LinkedIn,Replied,2026-10-02,buyer@mapleboutique.example.com
+Lumen Mercantile,Electronics Accessories,West,1,Instagram DM,Replied,2026-09-10,buyer@lumenmercantile.example.com
+Canvas Mercantile,Outdoor,South,1,Referral,Not contacted,,buyer@canvasmercantile.example.com
+Willow Collective,Gifts,West,4,LinkedIn,Not contacted,,buyer@willowcollective.example.com
+Velvet Market,Streetwear,Northeast,1,Instagram DM,Won,2026-09-26,buyer@velvetmarket.example.com
+Nomad Market,Beauty,Southwest,1,Trade show,Contacted,2026-10-05,buyer@nomadmarket.example.com
+Copper Goods,Apparel,West,12,Trade show,Not contacted,,buyer@coppergoods.example.com
+Kinfolk House,Apparel,Southwest,20,LinkedIn,Contacted,2026-09-15,buyer@kinfolkhouse.example.com
+Nomad Goods,Electronics Accessories,Southwest,5,Referral,Meeting,2026-09-06,buyer@nomadgoods.example.com
+Velvet Mercantile,Beauty,West,1,Instagram DM,Lost,2026-09-29,buyer@velvetmercantile.example.com
+Blue Market,Apparel,Midwest,4,Cold call,Contacted,2026-09-07,buyer@bluemarket.example.com
+North Supply Co.,Outdoor,Northeast,12,Email,Lost,2026-10-05,buyer@northsupplyco.example.com
+Oak & Ash House,Streetwear,Midwest,2,Cold call,Not contacted,,buyer@oakashhouse.example.com
+Velvet Outfitters,Home Goods,South,20,Trade show,Meeting,2026-08-26,buyer@velvetoutfitters.example.com
+Ember Supply Co.,Electronics Accessories,West,8,Referral,Contacted,2026-09-28,buyer@embersupplyco.example.com
+Ember Collective,Apparel,Midwest,4,LinkedIn,Replied,2026-09-30,buyer@embercollective.example.com
+Harbor Boutique,Electronics Accessories,Northeast,12,Email,Not contacted,,buyer@harborboutique.example.com
+Summit General Store,Apparel,Southwest,1,Cold call,Meeting,2026-09-12,buyer@summitgeneralstore.example.com
+Copper Supply Co.,Electronics Accessories,South,12,Trade show,Contacted,2026-08-22,buyer@coppersupplyco.example.com
+Riverside Trading,Outdoor,Southwest,12,Trade show,Replied,2026-09-21,buyer@riversidetrading.example.com
+Arch Market,Electronics Accessories,Northeast,2,Referral,Contacted,2026-08-27,buyer@archmarket.example.com
+Pine Market,Outdoor,West,4,LinkedIn,Won,2026-09-23,buyer@pinemarket.example.com
+Urban Goods,Beauty,South,2,LinkedIn,Contacted,2026-09-18,buyer@urbangoods.example.com
+Kinfolk Trading,Electronics Accessories,South,4,Email,Contacted,2026-09-07,buyer@kinfolktrading.example.com
+Lumen Supply Co.,Apparel,West,2,Trade show,Not contacted,,buyer@lumensupplyco.example.com
+Summit Boutique,Outdoor,Southwest,1,Referral,Not contacted,,buyer@summitboutique.example.com
+Arch Trading,Electronics Accessories,Midwest,1,Referral,Not contacted,,buyer@archtrading.example.com
+Ember Outfitters,Electronics Accessories,South,1,LinkedIn,Replied,2026-09-08,buyer@emberoutfitters.example.com
+Velvet Boutique,Gifts,Midwest,1,Instagram DM,Won,2026-09-10,buyer@velvetboutique.example.com
+Gateway Goods,Outdoor,West,1,Cold call,Replied,2026-09-26,buyer@gatewaygoods.example.com
+Kinfolk Boutique,Home Goods,Northeast,12,Cold call,Contacted,2026-08-24,buyer@kinfolkboutique.example.com
+Urban Supply Co.,Outdoor,Northeast,5,Instagram DM,Not contacted,,buyer@urbansupplyco.example.com
+Summit Goods,Apparel,South,12,Instagram DM,Replied,2026-09-19,buyer@summitgoods.example.com
+Hollow House,Home Goods,South,12,Referral,Not contacted,,buyer@hollowhouse.example.com
+Pine Trading,Beauty,Southwest,12,Referral,Not contacted,,buyer@pinetrading.example.com
+Atlas Outfitters,Apparel,Southwest,12,Email,Meeting,2026-09-01,buyer@atlasoutfitters.example.com
+Canvas Outfitters,Streetwear,Northeast,1,Instagram DM,Contacted,2026-08-28,buyer@canvasoutfitters.example.com
+Ember House,Gifts,Midwest,12,Email,Not contacted,,buyer@emberhouse.example.com
+Juniper General Store,Outdoor,West,1,Cold call,Contacted,2026-09-02,buyer@junipergeneralstore.example.com`;
+const STATUSES = ["Not contacted","Contacted","Replied","Meeting","Won","Lost"];
+const ENGAGE = {"Not contacted":0,"Contacted":0.35,"Replied":0.7,"Meeting":1,"Won":1,"Lost":0};
+const $ = id => document.getElementById(id);
+
+let leads = [];
+let targetCats = new Set(["Streetwear","Apparel"]);
+let targetRegs = new Set(["Midwest"]);
+let sortKey = "score", sortDir = -1;
+let TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+// ---------- CSV ----------
+function parseCSV(text){
+  const rows=[]; let row=[], cur="", q=false;
+  text = text.replace(/^﻿/,"");
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=c;
+    } else if(c==='"') q=true;
+    else if(c===','){ row.push(cur); cur=""; }
+    else if(c==='\n'||c==='\r'){
+      if(c==='\r'&&text[i+1]==='\n') i++;
+      row.push(cur); cur=""; if(row.some(v=>v.trim()!=="")) rows.push(row); row=[];
+    } else cur+=c;
+  }
+  row.push(cur); if(row.some(v=>v.trim()!=="")) rows.push(row);
+  if(!rows.length) return [];
+  const head = rows[0].map(h=>h.trim().toLowerCase().replace(/\s+/g,"_"));
+  return rows.slice(1).map(r=>Object.fromEntries(head.map((h,i)=>[h,(r[i]||"").trim()])));
+}
+function toCSV(rows){
+  if(!rows.length) return "";
+  const cols = Object.keys(rows[0]);
+  const esc = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  return [cols.join(","), ...rows.map(r=>cols.map(c=>esc(r[c])).join(","))].join("\n");
+}
+function normalize(raw){
+  const pick = (r,...keys) => { for(const k of keys) if(r[k]!==undefined && r[k]!=="") return r[k]; return ""; };
+  return raw.map((r,i)=>{
+    let status = pick(r,"status","stage");
+    const match = STATUSES.find(s=>s.toLowerCase()===status.toLowerCase());
+    return {
+      id:i,
+      name: pick(r,"name","company","retailer","store") || `Lead ${i+1}`,
+      category: pick(r,"category","segment","vertical") || "Unknown",
+      region: pick(r,"region","state","area") || "Unknown",
+      store_count: parseInt(pick(r,"store_count","stores","locations"))||1,
+      channel: pick(r,"channel","source") || "Unknown",
+      status: match || "Not contacted",
+      last_contact: pick(r,"last_contact","last_contacted","date"),
+      email: pick(r,"email","contact_email"),
+    };
+  }).filter(l=>l.name);
+}
+
+// ---------- Scoring ----------
+function sizePts(n){ return n>=6 ? 1 : n>=2 ? 0.6 : 0.2; }
+function daysSince(d){ if(!d) return null; const t=new Date(d+"T00:00:00"); if(isNaN(t)) return null; return Math.round((TODAY-t)/864e5); }
+function score(l, w){
+  const total = w.cat+w.size+w.reg+w.eng || 1;
+  const raw = w.cat*(targetCats.has(l.category)?1:0) + w.size*sizePts(l.store_count)
+            + w.reg*(targetRegs.has(l.region)?1:0.3) + w.eng*ENGAGE[l.status];
+  return Math.round(100*raw/total);
+}
+function weights(){ return {cat:+$("wCat").value,size:+$("wSize").value,reg:+$("wReg").value,eng:+$("wEng").value}; }
+function enrich(){
+  const w = weights(), hi=+$("tHigh").value, wa=+$("tWarm").value, stale=+$("tStale").value;
+  leads.forEach(l=>{
+    l.score = score(l,w);
+    l.segment = l.score>=hi ? "High-fit" : l.score>=wa ? "Warm" : "Cold";
+    const d = daysSince(l.last_contact);
+    l.follow_up = l.status==="Contacted" && d!==null && d>=stale;
+    l.days = d;
+  });
+}
+
+// ---------- Render ----------
+function bars(el, items, colorFn){
+  const max = Math.max(1,...items.map(i=>i.v));
+  el.innerHTML = items.map(i=>`<div class="bar"><span class="name" title="${i.k}">${i.k}</span>
+    <span class="track"><span class="fill" style="display:block;width:${100*i.v/max}%;background:${colorFn?colorFn(i.k):""}"></span></span>
+    <span class="n">${i.label ?? i.v}</span></div>`).join("") || '<p class="muted">No data</p>';
+}
+function renderKPIs(){
+  const n=leads.length, reached=leads.filter(l=>l.status!=="Not contacted").length;
+  const replied=leads.filter(l=>["Replied","Meeting","Won"].includes(l.status)).length;
+  const won=leads.filter(l=>l.status==="Won").length, fu=leads.filter(l=>l.follow_up).length;
+  const hi=leads.filter(l=>l.segment==="High-fit").length;
+  const k=[["Total leads",n],["High-fit leads",hi],["Contacted",n?Math.round(100*reached/n)+"%":"–"],
+           ["Reply rate",reached?Math.round(100*replied/reached)+"%":"–"],["Won",won],["Need follow-up",fu]];
+  $("kpis").innerHTML = k.map(([l,v])=>`<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+}
+function renderCharts(){
+  const segC={"High-fit":"var(--high)","Warm":"var(--warm)","Cold":"var(--cold)"};
+  bars($("chartSeg"), ["High-fit","Warm","Cold"].map(k=>({k,v:leads.filter(l=>l.segment===k).length})), k=>segC[k]);
+  bars($("chartFunnel"), STATUSES.map(k=>({k,v:leads.filter(l=>l.status===k).length})));
+  const chans=[...new Set(leads.map(l=>l.channel))];
+  const cr=chans.map(k=>{const r=leads.filter(l=>l.channel===k&&l.status!=="Not contacted");
+    const y=r.filter(l=>["Replied","Meeting","Won"].includes(l.status)).length;
+    const p=r.length?Math.round(100*y/r.length):0; return {k,v:p,label:p+"%"};}).sort((a,b)=>b.v-a.v);
+  bars($("chartChan"), cr);
+}
+const COLS=[["name","Name"],["segment","Segment"],["score","Score"],["category","Category"],["region","Region"],
+            ["store_count","Stores"],["channel","Channel"],["status","Status"],["last_contact","Last contact"],["email","Email"]];
+function renderTable(){
+  $("tbl").tHead.innerHTML = "<tr>"+COLS.map(([k,l])=>`<th data-k="${k}" class="${k===sortKey?"sorted":""}" data-dir="${sortDir>0?"▲":"▼"}">${l}</th>`).join("")+"</tr>";
+  const q=$("q").value.toLowerCase(), fs=$("fSeg").value, fst=$("fStatus").value, ff=$("fFollow").checked;
+  const rows = leads.filter(l=>(!q||(l.name+l.email).toLowerCase().includes(q)) && (!fs||l.segment===fs) && (!fst||l.status===fst) && (!ff||l.follow_up))
+    .sort((a,b)=>{const x=a[sortKey],y=b[sortKey]; return (typeof x==="number"&&typeof y==="number"?x-y:String(x).localeCompare(String(y)))*sortDir;});
+  $("count").textContent = `${rows.length} of ${leads.length} leads`;
+  $("tbl").tBodies[0].innerHTML = rows.map(l=>`<tr>
+    <td><b>${esc(l.name)}</b>${l.follow_up?` <span class="flag" title="Contacted ${l.days} days ago, no reply">● Follow up</span>`:""}</td>
+    <td><span class="seg ${l.segment}">${l.segment}</span></td><td class="score">${l.score}</td>
+    <td>${esc(l.category)}</td><td>${esc(l.region)}</td><td>${l.store_count}</td><td>${esc(l.channel)}</td>
+    <td><select data-id="${l.id}">${STATUSES.map(s=>`<option${s===l.status?" selected":""}>${s}</option>`).join("")}</select></td>
+    <td>${esc(l.last_contact)||'<span class="muted">–</span>'}</td><td class="muted">${esc(l.email)}</td></tr>`).join("");
+}
+function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function renderChips(){
+  const mk=(el,vals,set)=>{el.innerHTML=vals.map(v=>`<label class="chip"><input type="checkbox" value="${esc(v)}"${set.has(v)?" checked":""}>${esc(v)}</label>`).join("");
+    el.querySelectorAll("input").forEach(i=>i.onchange=()=>{i.checked?set.add(i.value):set.delete(i.value); refresh();});};
+  mk($("catChips"),[...new Set(leads.map(l=>l.category))].sort(),targetCats);
+  mk($("regChips"),[...new Set(leads.map(l=>l.region))].sort(),targetRegs);
+}
+function refresh(){
+  ["wCat","wSize","wReg","wEng","tHigh","tWarm","tStale"].forEach(id=>$(id+"V").textContent=$(id).value);
+  enrich(); renderKPIs(); renderCharts(); renderTable();
+}
+function load(text){ leads = normalize(parseCSV(text)); renderChips(); refresh(); }
+
+// ---------- Events ----------
+document.querySelectorAll("input[type=range]").forEach(r=>r.oninput=refresh);
+["q","fSeg","fStatus","fFollow"].forEach(id=>$(id).addEventListener("input",renderTable));
+$("fStatus").innerHTML += STATUSES.map(s=>`<option>${s}</option>`).join("");
+$("tbl").addEventListener("click",e=>{const th=e.target.closest("th"); if(!th) return;
+  const k=th.dataset.k; if(k===sortKey) sortDir*=-1; else {sortKey=k; sortDir=k==="score"?-1:1;} renderTable();});
+$("tbl").addEventListener("change",e=>{const s=e.target.closest("select[data-id]"); if(!s) return;
+  const l=leads.find(x=>x.id==s.dataset.id); l.status=s.value;
+  if(s.value!=="Not contacted") l.last_contact=new Date().toISOString().slice(0,10);
+  refresh();});
+$("file").onchange=e=>{const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>load(r.result); r.readAsText(f); e.target.value="";};
+$("loadSample").onclick=()=>load(SAMPLE_CSV);
+$("export").onclick=()=>{
+  const out=leads.map(({id,days,...rest})=>({...rest,follow_up:rest.follow_up?"yes":"no"}));
+  const blob=new Blob([toCSV(out)],{type:"text/csv"}); const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="scored_leads.csv"; a.click(); URL.revokeObjectURL(a.href);
+};
+
+load(SAMPLE_CSV);
+</script>
+</body>
+</html>
